@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>24-Hour Analog Clock</title>
+
+<!-- ===== APP ICON / INSTALL LINKS ===== -->
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b0d10">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Clock">
+
+<style>
+  :root{
+    --bg:#f4f5f7; --face:#ffffff; --border:#1d1f24; --text:#1d1f24;
+    --marks:#ffffff; --hour-hand:#00ff00;
+    --min-hand:#0000ff; --sec-hand:#ff0000; --center:#1d1f24; --digital-color:#ffffff;
+  }
+
+  :root[data-theme="dark"]{
+    --bg:#0b0d10; --face:#0c0d0f; --border:#2c2f35; --text:#f0f1f3;
+    --marks:#ffffff; --hour-hand:#00ff00;
+    --min-hand:#0000ff; --sec-hand:#ff0000; --center:#f0f1f3; --digital-color:#ffffff;
+  }
+
+  html,body{margin:0;padding:0;background:var(--bg); height:100%;}
+  body{
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    color:var(--text); gap:6px; padding:16px; box-sizing:border-box;
+    position:relative; overflow:hidden;
+  }
+
+  .wrap{width:100%; max-width:420px;}
+  svg{width:100%; height:auto; display:block;}
+
+  .digital{font-size:1.1rem; letter-spacing:0.05em; transition:opacity .3s; pointer-events:none; color:var(--digital-color);}
+  .date-display{font-size:0.9rem; opacity:0.8; transition:opacity .3s; pointer-events:none; color:var(--digital-color);}
+  .digital.hidden, .date-display.hidden{opacity:0;}
+
+  .gear-btn{
+    position:fixed; bottom:20px; right:20px; width:40px; height:40px;
+    background:var(--face); border:1px solid var(--border); color:var(--text);
+    font-size:18px; display:flex; align-items:center; justify-content:center; cursor:pointer;
+    transition:opacity .3s; z-index:20; border-radius:50%;
+  }
+
+  .gear-btn.hidden{opacity:0; pointer-events:none;}
+
+  .settings-panel{
+    position:fixed; bottom:66px; right:20px; width:250px; max-width:80vw;
+    background:var(--face); border:1px solid var(--border);
+    padding:14px; color:var(--text); font-size:0.85rem; z-index:20;
+    display:none; border-radius:14px;
+  }
+
+  .settings-panel.open{display:block;}
+
+  .settings-header{
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;
+  }
+
+  .settings-header h3{margin:0; font-size:0.9rem; font-weight:600;}
+
+  .exit-btn{
+    border:1px solid var(--border); background:var(--bg); color:var(--text);
+    font-size:0.75rem; padding:3px 8px; cursor:pointer; border-radius:8px;
+  }
+
+  .settings-row{display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; gap:8px;}
+  .settings-row label{opacity:0.8; flex:1;}
+  .settings-row.color-row{cursor:pointer;}
+
+  .swatch{
+    width:30px; height:24px; border:1px solid var(--border); border-radius:8px; display:inline-block;
+  }
+
+  .row-actions{display:flex; gap:4px;}
+
+  .row-actions button{
+    border:1px solid var(--border); background:var(--bg); color:var(--text);
+    font-size:0.72rem; padding:3px 7px; cursor:pointer; border-radius:8px;
+  }
+
+  .row-actions button:disabled{opacity:0.35; cursor:not-allowed;}
+
+  .group{border-top:1px solid var(--border); padding-top:10px; margin-top:4px;}
+
+  .time-row{display:flex; align-items:center; gap:6px; margin-bottom:8px;}
+
+  .time-row input[type="number"]{
+    width:46px; padding:4px; border:1px solid var(--border);
+    background:var(--bg); color:var(--text); font-size:0.85rem; text-align:center;
+    border-radius:8px;
+  }
+
+  .date-row{margin-bottom:8px;}
+
+  .date-row input[type="date"]{
+    width:100%; padding:4px; border:1px solid var(--border);
+    background:var(--bg); color:var(--text); font-size:0.85rem; box-sizing:border-box;
+    border-radius:8px;
+  }
+
+  .group .row-actions{justify-content:flex-end; width:100%;}
+  .group .row-actions button{flex:1;}
+
+  /* Color-picker sub-screen */
+  .color-overlay{
+    position:absolute; inset:0; background:var(--face); border:1px solid var(--border);
+    border-radius:14px; padding:14px; box-sizing:border-box;
+    display:none; flex-direction:column; gap:14px; z-index:5;
+  }
+
+  .color-overlay.open{display:flex;}
+  .color-overlay h4{margin:0; font-size:0.9rem; font-weight:600;}
+
+  .color-overlay input[type="color"]{
+    width:100%; height:60px; border:1px solid var(--border); border-radius:10px; cursor:pointer; padding:0;
+  }
+
+  .color-overlay .row-actions{justify-content:flex-end;}
+  .color-overlay .row-actions button{flex:1;}
+
+  /* ===== Clickable logo (top-left) ===== */
+  .app-logo{
+    position:fixed; top:16px; left:16px;
+    width:54px; height:54px;
+    z-index:30;
+    display:block;
+    border-radius:50%;
+    overflow:hidden;
+    transition:opacity .3s, transform .2s;
+    cursor:pointer;
+  }
+  .app-logo:hover{ opacity:.85; transform:scale(1.05); }
+  .app-logo img{ width:100%; height:100%; object-fit:contain; display:block; pointer-events:none; }
+</style>
+</head>
+
+<body>
+
+  <!-- ===== Clickable logo → opens the clock (this page) ===== -->
+  <a href="./index.html" class="app-logo" aria-label="Open Clock">
+    <img src="icon.png" alt="Clock logo">
+  </a>
+
+  <div class="wrap">
+    <svg id="clock" viewBox="-14 -14 428 428"></svg>
+  </div>
+
+  <div class="digital hidden" id="digital"></div>
+  <div class="date-display hidden" id="dateDisplay"></div>
+
+  <button class="gear-btn hidden" id="gearBtn" aria-label="Settings">⚙</button>
+
+  <div class="settings-panel" id="settingsPanel">
+
+    <div class="settings-header">
+      <h3>Settings</h3>
+      <button class="exit-btn" id="exitBtn">Exit</button>
+    </div>
+
+    <div class="settings-row color-row" data-key="bgColor" data-label="Background">
+      <label>Background</label>
+      <span class="swatch" id="bgColorSwatch"></span>
+    </div>
+
+    <div class="settings-row color-row" data-key="faceColor" data-label="Clock face">
+      <label>Clock face</label>
+      <span class="swatch" id="faceColorSwatch"></span>
+    </div>
+
+    <div class="settings-row color-row" data-key="marksColor" data-label="Lines &amp; numbers">
+      <label>Lines &amp; numbers</label>
+      <span class="swatch" id="marksColorSwatch"></span>
+    </div>
+
+    <div class="settings-row color-row" data-key="digitalColor" data-label="Time &amp; date">
+      <label>Time &amp; date</label>
+      <span class="swatch" id="digitalColorSwatch"></span>
+    </div>
+
+    <div class="settings-row color-row" data-key="secColor" data-label="Second pin">
+      <label>Second pin</label>
+      <span class="swatch" id="secColorSwatch"></span>
+    </div>
+
+    <div class="settings-row color-row" data-key="minColor" data-label="Minute pin">
+      <label>Minute pin</label>
+      <span class="swatch" id="minColorSwatch"></span>
+    </div>
+
+    <div class="settings-row color-row" data-key="hourColor" data-label="Hour pin">
+      <label>Hour pin</label>
+      <span class="swatch" id="hourColorSwatch"></span>
+    </div>
+
+    <div class="settings-row" style="justify-content:flex-end;">
+      <button id="defaultBtn" style="border:1px solid var(--border); background:var(--bg); color:var(--text); font-size:0.72rem; padding:3px 7px; cursor:pointer; border-radius:8px;">Default</button>
+    </div>
+
+    <div class="group">
+
+      <div class="date-row">
+        <input type="date" id="dateInput">
+      </div>
+
+      <div class="time-row">
+        <label style="opacity:0.8;">Time</label>
+        <input type="number" id="hourInput" min="0" max="23" placeholder="HH">
+        <span>:</span>
+        <input type="number" id="minInput" min="0" max="59" placeholder="MM">
+      </div>
+
+      <div class="row-actions">
+        <button id="dtCancel" disabled>Cancel</button>
+        <button id="dtOk" disabled>OK</button>
+      </div>
+
+    </div>
+
+    <div class="color-overlay" id="colorOverlay">
+      <h4 id="overlayTitle">Color</h4>
+      <input type="color" id="overlayInput">
+      <div class="row-actions">
+        <button id="overlayCancel">Cancel</button>
+        <button id="overlayOk">OK</button>
+      </div>
+    </div>
+
+  </div>
+
+<script>
+
+const NS = "http://www.w3.org/2000/svg";
+const svg = document.getElementById('clock');
+
+const cx = 200, cy = 200;
+
+function el(tag, attrs){
+  const e = document.createElementNS(NS, tag);
+  for(const k in attrs){
+    e.setAttribute(k, attrs[k]);
+  }
+  return e;
+}
+
+// Face
+const faceCircle = el('circle', {
+  cx, cy, r:204,
+  fill:'var(--face)',
+  stroke:'var(--border)',
+  'stroke-width':2
+});
+svg.appendChild(faceCircle);
+
+// Minute ticks every 5 minutes
+for(let m=0; m<60; m+=5){
+  const angle = (m/60) * 360 - 90;
+  const rad = angle * Math.PI/180;
+  const x1 = cx + 170*Math.cos(rad);
+  const y1 = cy + 170*Math.sin(rad);
+  const x2 = cx + 178*Math.cos(rad);
+  const y2 = cy + 178*Math.sin(rad);
+  svg.appendChild(el('line', {x1,y1,x2,y2, stroke:'var(--marks)', 'stroke-width':2}));
+
+  const tx = cx + 192*Math.cos(rad);
+  const ty = cy + 192*Math.sin(rad);
+  const t = el('text', {
+    x:tx, y:ty, fill:'var(--marks)', 'font-size':13, 'font-weight':600,
+    'text-anchor':'middle', 'dominant-baseline':'middle'
+  });
+  t.textContent = m;
+  svg.appendChild(t);
+}
+
+// Fine minute ticks
+for(let m=0; m<60; m++){
+  if(m % 5 === 0) continue;
+  const angle = (m/60) * 360 - 90;
+  const rad = angle * Math.PI/180;
+  const x1 = cx + 170*Math.cos(rad);
+  const y1 = cy + 170*Math.sin(rad);
+  const x2 = cx + 178*Math.cos(rad);
+  const y2 = cy + 178*Math.sin(rad);
+  svg.appendChild(el('line', {x1,y1,x2,y2, stroke:'var(--marks)', 'stroke-width':0.75, opacity:0.6}));
+
+  const tx = cx + 192*Math.cos(rad);
+  const ty = cy + 192*Math.sin(rad);
+  const t = el('text', {
+    x:tx, y:ty, fill:'var(--marks)', 'font-size':10, 'font-weight':400,
+    opacity:0.85, 'text-anchor':'middle', 'dominant-baseline':'middle'
+  });
+  t.textContent = m;
+  svg.appendChild(t);
+}
+
+// Hour ticks + numbers 1-24
+for(let h=1; h<=24; h++){
+  const angle = (h/24) * 360 - 90;
+  const rad = angle * Math.PI/180;
+  const x1 = cx + 108*Math.cos(rad);
+  const y1 = cy + 108*Math.sin(rad);
+  const x2 = cx + 116*Math.cos(rad);
+  const y2 = cy + 116*Math.sin(rad);
+  svg.appendChild(el('line', {x1,y1,x2,y2, stroke:'var(--marks)', 'stroke-width':1.5}));
+
+  const tx = cx + 132*Math.cos(rad);
+  const ty = cy + 132*Math.sin(rad);
+  const t = el('text', {
+    x:tx, y:ty, fill:'var(--marks)', 'font-size':15, 'font-weight':600,
+    'text-anchor':'middle', 'dominant-baseline':'middle'
+  });
+  t.textContent = h;
+  svg.appendChild(t);
+}
+
+// Hands
+const handsGroup = el('g', { 'pointer-events':'none' });
+
+const hourHand = el('line', {
+  x1:cx, y1:cy, stroke:'var(--hour-hand)', 'stroke-width':5, 'stroke-linecap':'round'
+});
+const minHand = el('line', {
+  x1:cx, y1:cy, stroke:'var(--min-hand)', 'stroke-width':3.5, 'stroke-linecap':'round'
+});
+const secHand = el('line', {
+  x1:cx, y1:cy, stroke:'var(--sec-hand)', 'stroke-width':1.5, 'stroke-linecap':'round'
+});
+
+handsGroup.appendChild(hourHand);
+handsGroup.appendChild(minHand);
+handsGroup.appendChild(secHand);
+svg.appendChild(handsGroup);
+
+svg.appendChild(el('circle', { cx, cy, r:6, fill:'var(--center)' }));
+
+const digital = document.getElementById('digital');
+const dateDisplay = document.getElementById('dateDisplay');
+
+const weekdayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+function setHand(hand, angleDeg, length){
+  const rad = (angleDeg - 90) * Math.PI/180;
+  hand.setAttribute('x2', cx + length*Math.cos(rad));
+  hand.setAttribute('y2', cy + length*Math.sin(rad));
+}
+
+let timeOffsetMs = 0;
+
+function getNow(){ return new Date(Date.now() + timeOffsetMs); }
+
+function tick(){
+  const now = getNow();
+  const h24 = now.getHours() === 0 ? 24 : now.getHours();
+  const m = now.getMinutes();
+  const s = now.getSeconds();
+
+  const hourAngle = (h24 % 24) / 24 * 360;
+  const minAngle = m / 60 * 360;
+  const secAngle = s / 60 * 360;
+
+  setHand(hourHand, hourAngle, 103);
+  setHand(minHand, minAngle, 160);
+  setHand(secHand, secAngle, 168);
+
+  digital.textContent =
+    String(now.getHours()).padStart(2,'0') + ':' +
+    String(m).padStart(2,'0') + ':' +
+    String(s).padStart(2,'0');
+
+  dateDisplay.textContent =
+    weekdayNames[now.getDay()] + ', ' +
+    monthNames[now.getMonth()] + ' ' +
+    now.getDate() + ', ' +
+    now.getFullYear();
+}
+
+tick();
+setInterval(tick, 1000);
+
+// ============================================================
+// TOUCH-TO-REVEAL CONTROLS
+// ============================================================
+
+const gearBtn = document.getElementById('gearBtn');
+const settingsPanel = document.getElementById('settingsPanel');
+
+let hideTimer = null;
+
+function showControls(){
+  digital.classList.remove('hidden');
+  dateDisplay.classList.remove('hidden');
+  gearBtn.classList.remove('hidden');
+  clearTimeout(hideTimer);
+  if(settingsPanel.classList.contains('open')){ return; }
+  hideTimer = setTimeout(hideControls, 10000);
+}
+
+function hideControls(){
+  digital.classList.add('hidden');
+  dateDisplay.classList.add('hidden');
+  gearBtn.classList.add('hidden');
+  settingsPanel.classList.remove('open');
+}
+
+function closeSettings(){
+  settingsPanel.classList.remove('open');
+  showControls();
+}
+
+document.addEventListener('pointerdown', showControls);
+document.addEventListener('touchstart', showControls, {passive:true});
+
+gearBtn.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  if(settingsPanel.classList.contains('open')){
+    closeSettings();
+  }else{
+    settingsPanel.classList.add('open');
+    showControls();
+  }
+});
+
+document.getElementById('exitBtn').addEventListener('click', (e)=>{
+  e.stopPropagation();
+  closeSettings();
+});
+
+settingsPanel.addEventListener('pointerdown', (e)=> e.stopPropagation());
+
+// ============================================================
+// CONFIRMED COLORS
+// ============================================================
+
+let confirmed = {
+  bgColor: localStorage.getItem('clockBgColor') || '#0b0d10',
+  faceColor: localStorage.getItem('clockFaceColor') || '#0c0d0f',
+  marksColor: localStorage.getItem('clockMarksColor') || '#ffffff',
+  digitalColor: localStorage.getItem('clockDigitalColor') || '#ffffff',
+  secColor: localStorage.getItem('clockSecColor') || '#ff0000',
+  minColor: localStorage.getItem('clockMinColor') || '#0000ff',
+  hourColor: localStorage.getItem('clockHourColor') || '#00ff00'
+};
+
+function applyColor(key, value){
+  if(key === 'bgColor'){ document.body.style.background = value; }
+  if(key === 'faceColor'){ faceCircle.setAttribute('fill', value); }
+  if(key === 'marksColor'){ document.documentElement.style.setProperty('--marks', value); }
+  if(key === 'digitalColor'){ document.documentElement.style.setProperty('--digital-color', value); }
+  if(key === 'secColor'){ document.documentElement.style.setProperty('--sec-hand', value); }
+  if(key === 'minColor'){ document.documentElement.style.setProperty('--min-hand', value); }
+  if(key === 'hourColor'){ document.documentElement.style.setProperty('--hour-hand', value); }
+}
+
+const colorKeys = ['bgColor','faceColor','marksColor','digitalColor','secColor','minColor','hourColor'];
+
+const storageKeyFor = {
+  bgColor:'clockBgColor',
+  faceColor:'clockFaceColor',
+  marksColor:'clockMarksColor',
+  digitalColor:'clockDigitalColor',
+  secColor:'clockSecColor',
+  minColor:'clockMinColor',
+  hourColor:'clockHourColor'
+};
+
+function updateSwatch(key){
+  document.getElementById(key + 'Swatch').style.background = confirmed[key];
+}
+
+colorKeys.forEach(key=>{
+  applyColor(key, confirmed[key]);
+  updateSwatch(key);
+});
+
+// ============================================================
+// COLOR PICKER
+// ============================================================
+
+const colorOverlay = document.getElementById('colorOverlay');
+const overlayTitle = document.getElementById('overlayTitle');
+const overlayInput = document.getElementById('overlayInput');
+
+let editingKey = null;
+
+document.querySelectorAll('.color-row').forEach(row=>{
+  row.addEventListener('click', ()=>{
+    editingKey = row.getAttribute('data-key');
+    overlayTitle.textContent = row.getAttribute('data-label');
+    overlayInput.value = confirmed[editingKey];
+    colorOverlay.classList.add('open');
+  });
+});
+
+document.getElementById('overlayOk').addEventListener('click', ()=>{
+  if(!editingKey) return;
+  confirmed[editingKey] = overlayInput.value;
+  applyColor(editingKey, overlayInput.value);
+  localStorage.setItem(storageKeyFor[editingKey], overlayInput.value);
+  updateSwatch(editingKey);
+  colorOverlay.classList.remove('open');
+  editingKey = null;
+});
+
+document.getElementById('overlayCancel').addEventListener('click', ()=>{
+  colorOverlay.classList.remove('open');
+  editingKey = null;
+});
+
+// ============================================================
+// DATE & TIME
+// ============================================================
+
+let dateTimeEditStart = null;
+
+function getDateTimeInputValues(){
+  return {
+    hour: document.getElementById('hourInput').value,
+    minute: document.getElementById('minInput').value,
+    date: document.getElementById('dateInput').value
+  };
+}
+
+function restoreDateTimeInputs(){
+  if(!dateTimeEditStart) return;
+  document.getElementById('hourInput').value = dateTimeEditStart.hour;
+  document.getElementById('minInput').value = dateTimeEditStart.minute;
+  document.getElementById('dateInput').value = dateTimeEditStart.date;
+}
+
+function setDateTimeEnabled(enabled){
+  document.getElementById('dtOk').disabled = !enabled;
+  document.getElementById('dtCancel').disabled = !enabled;
+
+  if(enabled && !dateTimeEditStart){
+    dateTimeEditStart = getDateTimeInputValues();
+  }
+
+  if(!enabled){
+    dateTimeEditStart = null;
+  }
+}
+
+['hourInput','minInput','dateInput'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', ()=> setDateTimeEnabled(true));
+});
+
+document.getElementById('dtOk').addEventListener('click', ()=>{
+
+  const hText = document.getElementById('hourInput').value.trim();
+  const mText = document.getElementById('minInput').value.trim();
+  const dateVal = document.getElementById('dateInput').value;
+
+  const h = hText === '' ? null : Number(hText);
+  const m = mText === '' ? null : Number(mText);
+
+  if(h !== null && (!Number.isInteger(h) || h < 0 || h > 23)){
+    alert('Hour must be a whole number from 0 to 23.');
+    return;
+  }
+
+  if(m !== null && (!Number.isInteger(m) || m < 0 || m > 59)){
+    alert('Minute must be a whole number from 0 to 59.');
+    return;
+  }
+
+  const now = new Date();
+
+  let year = now.getFullYear();
+  let month = now.getMonth();
+  let day = now.getDate();
+
+  if(dateVal){
+    const parts = dateVal.split('-');
+
+    if(parts.length !== 3){
+      alert('Please enter a valid date.');
+      return;
+    }
+
+    year = Number(parts[0]);
+    month = Number(parts[1]) - 1;
+    day = Number(parts[2]);
+
+    const checkDate = new Date(year, month, day);
+
+    if(
+      checkDate.getFullYear() !== year ||
+      checkDate.getMonth() !== month ||
+      checkDate.getDate() !== day
+    ){
+      alert('Please enter a valid date.');
+      return;
+    }
+  }
+
+  const hh = h === null ? now.getHours() : h;
+  const mm = m === null ? now.getMinutes() : m;
+
+  const desired = new Date(year, month, day, hh, mm, 0, 0);
+
+  timeOffsetMs = desired.getTime() - now.getTime();
+
+  tick();
+
+  setDateTimeEnabled(false);
+});
+
+document.getElementById('dtCancel').addEventListener('click', ()=>{
+  restoreDateTimeInputs();
+  setDateTimeEnabled(false);
+});
+
+// ============================================================
+// DEFAULT COLORS
+// ============================================================
+
+document.getElementById('defaultBtn').addEventListener('click', ()=>{
+
+  const defaults = {
+    bgColor:'#000000',
+    faceColor:'#000000',
+    marksColor:'#ffffff',
+    digitalColor:'#ffffff',
+    secColor:'#ff0000',
+    minColor:'#0000ff',
+    hourColor:'#00ff00'
+  };
+
+  for(const key in defaults){
+    const value = defaults[key];
+    confirmed[key] = value;
+    applyColor(key, value);
+    localStorage.setItem(storageKeyFor[key], value);
+    updateSwatch(key);
+  }
+
+});
+
+</script>
+
+</body>
+</html>

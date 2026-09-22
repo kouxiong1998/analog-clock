@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Analog Clock</title>
+
+<!-- App icon / install -->
+<link rel="icon" type="image/png" href="icon.png">
+<link rel="apple-touch-icon" href="icon.png">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0b0d10">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Clock">
+
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background: #0b0d10;
+    color: #f0f1f3;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  .launcher {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 22px;
+    text-decoration: none;
+    color: inherit;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .launcher img {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    object-fit: contain;
+    display: block;
+    transition: transform .25s ease, filter .25s ease;
+    filter: drop-shadow(0 8px 24px rgba(0,255,140,.15));
+  }
+
+  .launcher:hover img,
+  .launcher:focus img {
+    transform: scale(1.06);
+    filter: drop-shadow(0 10px 30px rgba(0,255,140,.35));
+  }
+
+  .launcher:active img {
+    transform: scale(0.97);
+  }
+
+  .launcher span {
+    font-size: 1rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    opacity: 0.7;
+    transition: opacity .25s;
+  }
+
+  .launcher:hover span {
+    opacity: 1;
+  }
+
+  .hint {
+    position: fixed;
+    bottom: 18px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    font-size: 0.72rem;
+    opacity: 0.35;
+    letter-spacing: 0.05em;
+  }
+</style>
+</head>
+<body>
+
+  <!-- Click the icon → opens the analog clock -->
+  <a class="launcher" href="clock.html">
+    <img src="icon.png" alt="Open Analog Clock">
+    <span>Open Clock</span>
+  </a>
+
+  <div class="hint">Tap the icon to launch the clock</div>
+
+</body>
+</html>
